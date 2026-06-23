@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام المحاسبة التكليفية الذكي | لوحة التحكم للمصنع</title>
+  <meta name="description" content="تطبيق محاسبة تكاليف تفاعلي ذكي">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="app-container">
+  <aside class="sidebar">
+    <div class="logo-container">
+      <div class="logo-icon"><i class="fa-solid fa-calculator"></i></div>
+      <div class="logo-text"><h1>محاسبة التكاليف</h1><p>المصنع المتكامل للنسيج والإسفنج</p></div>
+    </div>
+    <nav class="nav-menu">
+      <button id="nav-dashboard" class="nav-item active" onclick="switchTab('dashboard')"><i class="fa-solid fa-chart-line"></i><span>لوحة التحكم الرئيسية</span></button>
+      <button id="nav-costing" class="nav-item" onclick="switchTab('costing')"><i class="fa-solid fa-file-invoice-dollar"></i><span>بطاقة تكلفة المنتج</span></button>
+      <button id="nav-cvp" class="nav-item" onclick="switchTab('cvp')"><i class="fa-solid fa-scale-balanced"></i><span>تحليل التعادل (CVP)</span></button>
+      <button id="nav-abc" class="nav-item" onclick="switchTab('abc')"><i class="fa-solid fa-sitemap"></i><span>تخصيص التكاليف (ABC)</span></button>
+      <button id="nav-variance" class="nav-item" onclick="switchTab('variance')"><i class="fa-solid fa-arrow-trend-up"></i><span>تحليل الانحرافات</span></button>
+    </nav>
+    <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border-glass);">
+      <p style="font-size: 0.8rem; color: var(--text-muted);" id="current-user-text">المستخدم الحالي: مدير المصنع</p>
+      <p style="font-size: 0.75rem; color: var(--color-primary); font-family: var(--font-en);" id="version-text">v1.0.0 (النسخة الذكية)</p>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="header-bar">
+      <div class="welcome-section"><h2 id="page-title">لوحة التحكم والملخص العام</h2><p id="page-subtitle">نظرة عامة على أداء تكاليف المصنع وهيكل الأرباح</p></div>
+      <div class="actions-section">
+        <div class="factory-selector-wrapper"><span class="factory-selector-label"><i class="fa-solid fa-industry"></i> القالب النشط:</span>
+          <select id="factory-template-selector" class="factory-select" onchange="changeFactoryTemplate(this.value)">
+            <option value="default">مصنع القماش والإسفنج والماطلة</option>
+            <option value="furniture">مصنع أثاث خشبي ومفروشات (مقارنة)</option>
+            <option value="bakery">مخبز وحلويات آلي (مقارنة)</option>
+          </select>
+        </div>
+        <button class="btn-print" onclick="exportExcelTemplate()"><i class="fa-solid fa-file-excel"></i><span>تحميل نموذج Excel</span></button>
+        <button class="btn-print" onclick="triggerExcelImport()"><i class="fa-solid fa-file-import"></i><span>استيراد من Excel</span></button>
+        <input type="file" id="excel-file-input" style="display:none;" accept=".xlsx, .xls" onchange="importExcel(event)">
+        <button class="btn-print" id="lang-toggle-btn" onclick="toggleLanguage()"><i class="fa-solid fa-language"></i><span id="lang-btn-text">Français</span></button>
+        <button class="btn-print" onclick="window.print()"><i class="fa-solid fa-print"></i><span>تصدير PDF / طباعة</span></button>
+      </div>
+    </header>
+
+    <div class="pages-container">
+      <!-- Dashboard Page -->
+      <section id="page-dashboard" class="tab-page active">
+        <div class="dashboard-grid">
+          <div class="kpi-card"><div class="kpi-info"><h3>إجمالي التكاليف الثابتة</h3><div id="dashboard-fixed-costs" class="kpi-value">0</div></div><div class="kpi-icon"><i class="fa-solid fa-lock"></i></div></div>
+          <div class="kpi-card purple"><div class="kpi-info"><h3>إجمالي مبيعات المصنع (المخطط)</h3><div id="dashboard-total-sales" class="kpi-value">0</div></div><div class="kpi-icon"><i class="fa-solid fa-coins"></i></div></div>
+          <div class="kpi-card green"><div class="kpi-info"><h3>صافي الربح الإجمالي المقدر</h3><div id="dashboard-net-profit" class="kpi-value">0</div></div><div class="kpi-icon"><i class="fa-solid fa-money-bill-trend-up"></i></div></div>
+          <div class="kpi-card amber"><div class="kpi-info"><h3>نسبة هامش الأمان الإجمالي</h3><div id="dashboard-safety-margin" class="kpi-value">0%</div></div><div class="kpi-icon"><i class="fa-solid fa-shield-halved"></i></div></div>
+        </div>
+        <div class="charts-grid">
+          <div class="chart-card"><h3 class="card-title"><i class="fa-solid fa-chart-column"></i> مقارنة الإيرادات والتكاليف الإجمالية</h3><div class="chart-container"><canvas id="chart-product-comparison"></canvas></div></div>
+          <div class="chart-card"><h3 class="card-title"><i class="fa-solid fa-chart-pie"></i> توزيع التكاليف الثابتة</h3><div class="chart-container"><canvas id="chart-fixed-breakdown"></canvas></div></div>
+        </div>
+        <div class="table-card"><h3 class="card-title"><i class="fa-solid fa-table-list"></i> ملخص قائمة المنتجات</h3><div class="responsive-table-wrapper"><table id="dashboard-products-table"><thead><tr><th>المنتج</th><th>الوحدة</th><th>سعر البيع</th><th>تكلفة الوحدة</th><th>هامش المساهمة</th><th>حجم المبيعات</th><th>الإيرادات</th></tr></thead><tbody></tbody></table></div></div>
+      </section>
+
+      <!-- Costing Page -->
+      <section id="page-costing" class="tab-page">
+        <div class="costing-layout">
+          <div class="products-list-panel"><h3 class="card-title"><i class="fa-solid fa-boxes-stacked"></i> اختر المنتج</h3><div id="costing-products-buttons" class="nav-menu"></div><button class="btn-primary" onclick="addNewProductPrompt()"><i class="fa-solid fa-plus"></i> إضافة منتج جديد</button></div>
+          <div class="costing-details-panel"><h3 class="card-title" id="costing-product-title"><i class="fa-solid fa-calculator"></i> تفاصيل التكلفة</h3>
+            <div class="inputs-row"><div class="form-group"><label for="prod-input-name">اسم المنتج</label><input type="text" id="prod-input-name" class="form-control" oninput="updateCurrentProductBasicInfo()"></div>
+            <div class="form-group"><label for="prod-input-price">سعر البيع (د.ج)</label><input type="number" id="prod-input-price" class="form-control" oninput="updateCurrentProductBasicInfo()"></div>
+            <div class="form-group"><label for="prod-input-volume">حجم المبيعات</label><input type="number" id="prod-input-volume" class="form-control" oninput="updateCurrentProductBasicInfo()"></div></div>
+            <div class="section-subtitle"><span>المواد المباشرة</span><button class="btn-secondary" onclick="addMaterialRow()"><i class="fa-solid fa-plus"></i> إضافة خامة</button></div>
+            <div class="responsive-table-wrapper"><table id="materials-table"><thead><tr><th>الخامة</th><th>الكمية</th><th>الوحدة</th><th>السعر</th><th>الإجمالي</th><th></th></tr></thead><tbody></tbody></table></div>
+            <div class="section-subtitle"><span>الأجور المباشرة</span><button class="btn-secondary" onclick="addLaborRow()"><i class="fa-solid fa-plus"></i> إضافة وظيفة</button></div>
+            <div class="responsive-table-wrapper"><table id="labor-table"><thead><tr><th>الوظيفة</th><th>الساعات</th><th>معدل الأجر</th><th>الإجمالي</th><th></th></tr></thead><tbody></tbody></table></div>
+            <div class="section-subtitle"><span>التكاليف غير المباشرة</span></div>
+            <div class="inputs-row"><div class="form-group"><label for="moh-rate-select">أساس التخصيص</label><select id="moh-rate-select" class="form-control" onchange="recalcProductCosts()"><option value="labor">ساعات العمل المباشر</option><option value="material">تكلفة المواد</option><option value="units">بالتساوي على الوحدات</option></select></div>
+            <div class="form-group"><label>نصيب الوحدة من MOH</label><input type="text" id="prod-input-moh" class="form-control" disabled value="0"></div></div>
+            <div class="totals-summary-grid"><div class="total-box"><h4>التكلفة الأولية</h4><p id="summary-prime-cost">0</p></div><div class="total-box"><h4>تكلفة التحويل</h4><p id="summary-conversion-cost">0</p></div><div class="total-box"><h4>تكلفة الوحدة</h4><p id="summary-total-cost" class="accent">0</p></div></div>
+            <div class="pricing-calculator-box"><h4><i class="fa-solid fa-tag"></i> حاسبة التسعير</h4><div class="inputs-row"><div class="form-group"><label for="pricing-markup">هامش الربح (%)</label><input type="number" id="pricing-markup" class="form-control" value="25" oninput="calculateSuggestedPrice()"></div><div class="form-group"><label>السعر المقترح</label><input type="text" id="pricing-suggested-price" class="form-control" disabled></div><div class="form-group"><label>هامش المساهمة</label><input type="text" id="pricing-contribution-margin" class="form-control" disabled></div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CVP Page -->
+      <section id="page-cvp" class="tab-page">
+        <div class="cvp-layout">
+          <div class="simulator-box"><h3 class="card-title"><i class="fa-solid fa-sliders"></i> محاكاة حجم المبيعات</h3>
+            <div class="form-group"><label for="cvp-product-selector">اختر المنتج</label><select id="cvp-product-selector" class="form-control" onchange="onCVPProductChange()"></select></div>
+            <div class="totals-summary-grid"><div class="total-box"><h4>نقطة التعادل (وحدات)</h4><p id="cvp-bep-units" class="accent">0</p></div><div class="total-box"><h4>نقطة التعادل (قيمة)</h4><p id="cvp-bep-value">0</p></div></div>
+            <div class="slider-container"><label>حجم المبيعات المستهدف:</label><input type="range" id="cvp-qty-slider" class="range-slider" min="0" max="50000" step="100" value="1000" oninput="simulateCVP()"><div class="slider-values"><span>0</span><span id="slider-current-val" style="color:var(--color-primary);font-weight:700;">1000</span><span id="slider-max-val">50000</span></div></div>
+            <div class="totals-summary-grid"><div class="total-box"><h4>الإيرادات</h4><p id="sim-revenue" style="color:var(--color-success)">0</p></div><div class="total-box"><h4>التكاليف الإجمالية</h4><p id="sim-total-costs" style="color:var(--color-danger)">0</p></div><div class="total-box"><h4>صافي الربح</h4><p id="sim-net-profit">0</p></div></div>
+            <div class="form-group"><label for="cvp-target-profit">الوحدات لتحقيق ربح مستهدف:</label><div style="display:flex;gap:10px;"><input type="number" id="cvp-target-profit" class="form-control" value="500000" oninput="calcTargetProfitUnits()"><input type="text" id="cvp-target-profit-units" class="form-control" style="width:150px;" disabled></div></div>
+          </div>
+          <div class="chart-card"><h3 class="card-title"><i class="fa-solid fa-chart-area"></i> رسم بياني CVP</h3><div class="chart-container"><canvas id="chart-cvp"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ABC Page -->
+      <section id="page-abc" class="tab-page">
+        <h3 class="card-title"><i class="fa-solid fa-network-wired"></i> المقارنة بين التقليدي و ABC</h3>
+        <div class="table-card"><h3 class="card-title"><i class="fa-solid fa-circle-nodes"></i> مجمعات التكلفة</h3><div class="responsive-table-wrapper"><table id="abc-pools-table"><thead><tr><th>مجمع التكلفة</th><th>القيمة</th><th>مسبب التكلفة</th><th>المحرك الإجمالي</th><th>معدل التكلفة</th></tr></thead><tbody></tbody></table></div></div>
+        <div class="abc-comparison-grid"><div class="abc-card"><h3 class="card-title">التوزيع التقليدي</h3><div class="responsive-table-wrapper"><table id="abc-traditional-table"><thead><tr><th>المنتج</th><th>ساعات العمل</th><th>نصيب MOH</th><th>التكلفة الإجمالية</th></tr></thead><tbody></tbody></table></div></div>
+        <div class="abc-card"><h3 class="card-title">التوزيع على أساس النشاط (ABC)</h3><div class="responsive-table-wrapper"><table id="abc-advanced-table"><thead><tr><th>المنتج</th><th>المسبب الحقيقي</th><th>نصيب MOH</th><th>التكلفة الإجمالية</th></tr></thead><tbody></tbody></table></div></div></div>
+        <div class="table-card"><h4><i class="fa-solid fa-circle-exclamation"></i> النتيجة الاستشارية</h4><p id="abc-executive-note"></p></div>
+      </section>
+
+      <!-- Variance Page -->
+      <section id="page-variance" class="tab-page">
+        <h3 class="card-title"><i class="fa-solid fa-calculator"></i> تحليل الانحرافات</h3>
+        <div class="table-card"><h3 class="card-title">انحراف المواد</h3><div class="responsive-table-wrapper"><table id="variance-materials-table"><thead><tr><th>المنتج</th><th>الخامة</th><th>سعر معياري/فعلي</th><th>كمية معيارية/فعلية</th><th>انحراف السعر</th><th>انحراف الكمية</th><th>الإجمالي</th></tr></thead><tbody></tbody></table></div></div>
+        <div class="table-card"><h3 class="card-title">انحراف الأجور</h3><div class="responsive-table-wrapper"><table id="variance-labor-table"><thead><tr><th>المنتج</th><th>العملية</th><th>معدل معياري/فعلي</th><th>ساعات معيارية/فعلية</th><th>انحراف المعدل</th><th>انحراف الكفاءة</th><th>الإجمالي</th></tr></thead><tbody></tbody></table></div></div>
+      </section>
+    </div>
+
+    <footer class="footer-text"><p>© 2026 جميع الحقوق محفوظة</p></footer>
+  </main>
+</div>
+
+<script src="mock-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
